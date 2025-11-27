@@ -1,0 +1,40 @@
+:root {
+    --bs-primary: #6f42c1;
+    --bs-primary-rgb: 111, 66, 193;
+    --bs-secondary: #d3c7f3;
+    --bs-secondary-rgb: 211, 199, 243;
+  }
+  
+  .navbar, .btn-primary {
+    background-color: var(--bs-primary) !important;
+    border-color: var(--bs-primary) !important;
+  }
+  
+  .card, .modal-content {
+    border-color: var(--bs-secondary) !important;
+  }
+  
+  .lesson-card, .journal-entry, .student-info {
+    background-color: #f8f5ff !important;
+  }
+  
+  .table-hover tbody tr:hover {
+    background-color: rgba(111, 66, 193, 0.05) !important;
+  }
+  
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  .modal-backdrop {
+    display: none !important;
+  }
+  
+  .modal {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+  
+  .modal-content {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  }
