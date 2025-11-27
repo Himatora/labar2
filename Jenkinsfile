@@ -24,7 +24,7 @@ pipeline {
                 script {
                     echo "🔨 Building backend image..."
                     dir('dev') {
-                        sh """
+                        bat """
                             docker build -f Dockerfile.backend -t ${BACKEND_IMAGE}:${BUILD_VERSION} .
                             docker tag ${BACKEND_IMAGE}:${BUILD_VERSION} ${BACKEND_IMAGE}:latest
                         """
@@ -38,7 +38,7 @@ pipeline {
                 script {
                     echo "🔨 Building nginx image..."
                     dir('dev') {
-                        sh """
+                        bat """
                             docker build -f Dockerfile.nginx -t ${NGINX_IMAGE}:${BUILD_VERSION} .
                             docker tag ${NGINX_IMAGE}:${BUILD_VERSION} ${NGINX_IMAGE}:latest
                         """
@@ -52,7 +52,7 @@ pipeline {
                 script {
                     echo "🔨 Building version control image..."
                     dir('dev/version_control') {
-                        sh """
+                        bat """
                             docker build -t ${VERSIONCONTROL_IMAGE}:${BUILD_VERSION} .
                             docker tag ${VERSIONCONTROL_IMAGE}:${BUILD_VERSION} ${VERSIONCONTROL_IMAGE}:latest
                         """
@@ -65,7 +65,7 @@ pipeline {
             steps {
                 script {
                     echo "🧪 Running containerized tests..."
-                    sh """
+                    bat """
                         docker run --rm ${BACKEND_IMAGE}:${BUILD_VERSION} python manage.py test --no-input || echo "Tests completed with warnings"
                     """
                 }
@@ -76,7 +76,7 @@ pipeline {
             steps {
                 script {
                     echo "📤 Pushing images to local registry..."
-                    sh """
+                    bat """
                         docker push ${BACKEND_IMAGE}:${BUILD_VERSION}
                         docker push ${BACKEND_IMAGE}:latest
                         docker push ${NGINX_IMAGE}:${BUILD_VERSION}
@@ -93,10 +93,10 @@ pipeline {
                 script {
                     echo "🚀 Deploying dev environment..."
                     dir('dev') {
-                        sh """
-                            docker-compose down || true
+                        bat """
+                            docker-compose down || echo "No containers to stop"
                             docker-compose up -d --build
-                            sleep 10
+                            timeout /t 10 /nobreak
                             curl -f http://localhost/api/ || exit 1
                             echo "✅ Dev deployment successful!"
                         """
@@ -117,7 +117,7 @@ pipeline {
         }
         always {
             echo "🧹 Cleaning up..."
-            sh "docker system prune -f || true"
+            bat "docker system prune -f || echo "Cleanup completed""
         }
     }
 }
