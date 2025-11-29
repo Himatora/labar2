@@ -85,35 +85,35 @@ pipeline {
         }
         
      stage('Deploy Dev Environment') {
-            steps {
-                script {
-                    echo "🚀 Deploying dev environment..."
-                    sh """
-                        # Останавливаем ВСЕ контейнеры, использующие наши порты
-                        docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
-                        docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
-                        docker stop $(docker ps -q --filter "publish=80") 2>/dev/null || true
-                        docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
-                        
-                        # Удаляем остановленные контейнеры
-                        docker rm $(docker ps -aq --filter "publish=8001") 2>/dev/null || true
-                        docker rm $(docker ps -aq --filter "publish=8000") 2>/dev/null || true
-                        docker rm $(docker ps -aq --filter "publish=80") 2>/dev/null || true
-                        docker rm $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
-                        
-                        # Полная очистка docker-compose
-                        docker compose down --remove-orphans --volumes --timeout 30 || true
-                        
-                        # Запускаем приложение
-                        docker compose up -d --build
-                        
-                        sleep 10
-                        curl -f http://localhost/api/ || exit 1
-                        echo "✅ Dev deployment successful!"
-                    """
-                }
+        steps {
+            script {
+                echo "🚀 Deploying dev environment..."
+                sh '''
+                    # Останавливаем ВСЕ контейнеры, использующие наши порты
+                    docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
+                    docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
+                    docker stop $(docker ps -q --filter "publish=80") 2>/dev/null || true
+                    docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
+                    
+                    # Удаляем остановленные контейнеры
+                    docker rm $(docker ps -aq --filter "publish=8001") 2>/dev/null || true
+                    docker rm $(docker ps -aq --filter "publish=8000") 2>/dev/null || true
+                    docker rm $(docker ps -aq --filter "publish=80") 2>/dev/null || true
+                    docker rm $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
+                    
+                    # Полная очистка docker-compose
+                    docker compose down --remove-orphans --volumes --timeout 30 || true
+                    
+                    # Запускаем приложение
+                    docker compose up -d --build
+                    
+                    sleep 10
+                    curl -f http://localhost/api/ || exit 1
+                    echo "✅ Dev deployment successful!"
+                '''
             }
         }
+    }
         
         stage('Push to Git Repository') {
             steps {
