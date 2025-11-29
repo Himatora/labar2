@@ -116,14 +116,18 @@ pipeline {
         }
         
         stage('Push to Git Repository') {
-            steps {
-                script {
-                    echo '📤 Pushing build information to Git...'
-                    
-                    sshagent(['github-ssh-key']) {
-                        sh '''
-                            # Создаем файл с информацией о сборке
-                            cat > build-info.txt << EOF
+    steps {
+        script {
+            echo '📤 Pushing build information to Git...'
+            
+            withCredentials([usernamePassword(
+                credentialsId: 'github-token',
+                usernameVariable: 'GIT_USERNAME',
+                passwordVariable: 'GIT_PASSWORD'
+            )]) {
+                sh '''
+                    # Создаем файл с информацией о сборке
+                    cat > build-info.txt << EOF
 Build Number: ${BUILD_NUMBER}
 Build Version: build-${BUILD_NUMBER}
 Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
@@ -131,26 +135,20 @@ Git Commit: $(git rev-parse HEAD)
 Git Branch: origin/main
 EOF
 
-                            echo "=== Build Info File Content ==="
-                            cat build-info.txt
-                            echo "=== End Build Info ==="
-                            
-                            git config user.name "Jenkins CI"
-                            git config user.email "jenkins@ci.local"
-                            git remote set-url origin git@github.com:Himatora/labar2.git
-                            git add build-info.txt
-                            git status
-                            git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}" || echo "No changes to commit"
-                            git push origin HEAD:main
-                            git push origin --tags
-                        '''
-                    }
-                    
-                    echo '✅ Git push completed successfully!'
-                }
+                    git config user.name "Jenkins CI"
+                    git config user.email "jenkins@ci.local"
+                    git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Himatora/labar2.git
+                    git add build-info.txt
+                    git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}"
+                    git push origin HEAD:main
+                    git push origin --tags
+                '''
             }
+            
+            echo '✅ Git push completed successfully!'
         }
     }
+}
     
     post {
         success {
