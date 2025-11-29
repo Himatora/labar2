@@ -89,8 +89,14 @@ pipeline {
                 script {
                     echo "🚀 Deploying dev environment..."
                     sh """
-                        docker compose down || true
+                        # Останавливаем старый registry если он есть
+                        docker stop docker-registry-dev || true
+                        docker rm docker-registry-dev || true
+                        
+                        # Останавливаем и перезапускаем приложение
+                        docker compose down --remove-orphans || true
                         docker compose up -d --build
+                        
                         sleep 10
                         curl -f http://localhost/api/ || exit 1
                         echo "✅ Dev deployment successful!"
