@@ -15,16 +15,18 @@ pipeline {
     
     stages {
         stage('Checkout and Detect Branch') {
-            steps {
-                checkout scm
-                script {
-                    echo "📦 Checking out code from ${env.GIT_BRANCH}"
-                    // Определяем текущую ветку
-                    CURRENT_BRANCH = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
-                    echo "🎯 Current branch: ${CURRENT_BRANCH}"
-                }
-            }
+    steps {
+        checkout scm
+        script {
+            echo "📦 Checking out code from ${env.GIT_BRANCH}"
+            // ФИКС: Добавляем def для переменной
+            def CURRENT_BRANCH = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+            echo "🎯 Current branch: ${CURRENT_BRANCH}"
+            // Сохраняем в env для использования в других stage
+            env.CURRENT_BRANCH = CURRENT_BRANCH
         }
+    }
+}
         
         stage('Merge dev to main') {
             when {
