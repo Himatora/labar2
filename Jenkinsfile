@@ -84,17 +84,27 @@ pipeline {
             }
         }
         
-        stage('Deploy Dev Environment') {
+     stage('Deploy Dev Environment') {
             steps {
                 script {
                     echo "🚀 Deploying dev environment..."
                     sh """
-                        # Останавливаем старый registry если он есть
-                        docker stop docker-registry-dev || true
-                        docker rm docker-registry-dev || true
+                        # Останавливаем ВСЕ контейнеры, использующие наши порты
+                        docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=80") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
                         
-                        # Останавливаем и перезапускаем приложение
-                        docker compose down --remove-orphans || true
+                        # Удаляем остановленные контейнеры
+                        docker rm $(docker ps -aq --filter "publish=8001") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=8000") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=80") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
+                        
+                        # Полная очистка docker-compose
+                        docker compose down --remove-orphans --volumes --timeout 30 || true
+                        
+                        # Запускаем приложение
                         docker compose up -d --build
                         
                         sleep 10
