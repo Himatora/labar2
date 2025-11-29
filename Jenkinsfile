@@ -84,11 +84,11 @@ pipeline {
             }
         }
         
-        stage('Deploy Dev Environment') {
-            steps {
+       stage('Deploy Dev Environment') {
+          steps {
                 script {
                     echo "🚀 Deploying dev environment..."
-                    sh """
+                    sh '''
                         # Останавливаем ВСЕ контейнеры, использующие наши порты
                         docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
                         docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
@@ -110,7 +110,7 @@ pipeline {
                         sleep 10
                         curl -f http://localhost/api/ || exit 1
                         echo "✅ Dev deployment successful!"
-                    """
+                    '''
                 }
             }
         }
