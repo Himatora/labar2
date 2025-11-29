@@ -154,15 +154,93 @@ pipeline {
         script {
             echo "🚀 Deploying from main branch..."
             sh '''
-                # Останавливаем контейнеры, использующие порт 5000
+                set +e  # Разрешаем ошибки для лучшего контроля
+                
+                echo "🔧 Step 1: Stopping all containers using port 5000..."
+                # Более агрессивная очистка порта 5000
                 docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
                 docker rm -f $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
                 
-                # Полная очистка docker-compose
-                docker compose down --remove-orphans --volumes --timeout 30 || true
+                echo "🔧 Step 2: Checking what's using port 5000..."
+                # Проверяем процессы на порту 5000
+                if command -v netstat >/dev/null 2>&1; then
+                    echo "Netstat output for port 5000:"
+                    netstat -tulpn | grep :5000 || echo "No processes found with netstat"
+                fi
                 
+                if command -v ss >/dev/null 2>&1; then
+                    echo "SS output for port 5000:"
+                    ss -tulpn | grep :5000 || echo "No processes found with ss"
+                fi
+                
+                if command -v lsof >/dev/null 2>&1; then
+                    echo "Lsof output for port 5000:"
+                    lsof -i :5000 || echo "No processes found with lsof"
+                fi
+                
+                echo "🔧 Step 3: Killing processes on port 5000..."
+                # Принудительно освобождаем порт
+                sudo fuser -k 5000/tcp 2>/dev/null || true
                 sleep 5
+                
+                echo "🔧 Step 4: Complete docker compose cleanup..."
+                docker compose down --remove-orphans --volumes --timeout 30 || true
+                sleep 10  # Даем больше времени на очистку
+                
+                echo "🔧 Step 5: Checking port 5000 availability..."
+                if command -v nc >/dev/null 2>&1; then
+                    if nc -z localhost 5000; then
+                        echo "❌ Port 5000 is still occupied after cleanup"
+                        echo "🔄 Trying alternative port 5002..."
+                        # Альтернативное решение - меняем порт в docker-compose
+                        sed -i 's/5000:5000/5002:5000/g' docker-compose.yml || echo "Could not change port, continuing with 5000"
+                    else
+                        echo "✅ Port 5000 is available"
+                    fi
+                fi
+                
+                echo "🔧 Step 6: Starting services..."
                 docker compose up -d --build --force-recreate
+                
+                if [ $? -eq 0 ]; then
+                    echo "✅ Services started successfully"
+                    
+                    # Даем время на запуск
+                    sleep 30
+                    
+                    # Проверяем статус контейнеров
+                    echo "📊 Container status:"
+                    docker compose ps
+                    
+                    # Проверяем логи
+                    echo "📋 Checking container logs..."
+                    docker compose logs --tail=20
+                    
+                    echo "✅ Deployment completed successfully!"
+                else
+                    echo "❌ Failed to start services"
+                    echo "🔄 Trying with different port..."
+                    
+                    # Пробуем с портом 5002 как запасной вариант
+                    docker compose down --remove-orphans --volumes --timeout 30 || true
+                    sleep 5
+                    
+                    # Изменяем порт в docker-compose
+                    sed -i 's/5000:5000/5002:5000/g' docker-compose.yml || echo "Could not modify docker-compose.yml"
+                    
+                    docker compose up -d --build --force-recreate
+                    
+                    if [ $? -eq 0 ]; then
+                        echo "✅ Services started successfully on port 5002"
+                        sleep 30
+                        docker compose ps
+                        docker compose logs --tail=20
+                    else
+                        echo "❌ Deployment failed completely"
+                        docker compose logs
+                        exit 1
+                    fi
+                fi
             '''
         }
     }
