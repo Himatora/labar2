@@ -135,7 +135,7 @@ pipeline {
             echo '✅ Git push completed successfully!'
         }
     }
-}
+
     
     post {
         success {
