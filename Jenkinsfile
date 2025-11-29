@@ -9,12 +9,75 @@ pipeline {
         BUILD_VERSION = "build-${BUILD_NUMBER}"
     }
     
+    triggers {
+        pollSCM('H/2 * * * *') // Проверяет изменения каждые 2 минуты
+    }
+    
     stages {
-        stage('Checkout Code') {
+        stage('Checkout and Detect Branch') {
             steps {
                 checkout scm
                 script {
                     echo "📦 Checking out code from ${env.GIT_BRANCH}"
+                    // Определяем текущую ветку
+                    CURRENT_BRANCH = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    echo "🎯 Current branch: ${CURRENT_BRANCH}"
+                }
+            }
+        }
+        
+        stage('Merge dev to main') {
+            when {
+                expression { 
+                    return env.GIT_BRANCH == 'origin/dev' || CURRENT_BRANCH == 'dev'
+                }
+            }
+            steps {
+                script {
+                    echo "🔄 Merging dev to main..."
+                    
+                    withCredentials([usernamePassword(
+                        credentialsId: 'github-token',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )]) {
+                        sh '''
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@ci.local"
+                            git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Himatora/labar2.git
+                            
+                            # Переключаемся на main и обновляем её
+                            git fetch origin
+                            git checkout main
+                            git pull origin main
+                            
+                            # Мержим dev в main
+                            git merge origin/dev --no-ff -m "Auto-merge: dev to main by Jenkins (build ${BUILD_NUMBER})"
+                            
+                            # Пушим изменения в main
+                            git push origin main
+                            
+                            echo "✅ Successfully merged dev to main"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Switch to main for deployment') {
+            when {
+                expression { 
+                    return env.GIT_BRANCH == 'origin/dev' || CURRENT_BRANCH == 'dev'
+                }
+            }
+            steps {
+                script {
+                    echo "🔄 Switching to main branch for deployment..."
+                    checkout([$class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        extensions: [],
+                        userRemoteConfigs: [[url: 'https://github.com/Himatora/labar2.git', credentialsId: 'github-token']]
+                    ])
                 }
             }
         }
@@ -84,10 +147,10 @@ pipeline {
             }
         }
         
-        stage('Deploy Dev Environment') {
+        stage('Deploy from main') {
             steps {
                 script {
-                    echo "🚀 Deploying dev environment..."
+                    echo "🚀 Deploying from main branch..."
                     sh '''
                         # Останавливаем ВСЕ контейнеры, использующие наши порты
                         docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
@@ -104,18 +167,18 @@ pipeline {
                         # Полная очистка docker-compose
                         docker compose down --remove-orphans --volumes --timeout 30 || true
                         
-                        # Запускаем приложение
+                        # Запускаем приложение из main
                         docker compose up -d --build
                         
                         sleep 10
                         curl -f http://localhost/api/ || exit 1
-                        echo "✅ Dev deployment successful!"
+                        echo "✅ Deployment from main successful!"
                     '''
                 }
             }
         }
         
-        stage('Push to Git Repository') {
+        stage('Push Build Info to Git') {
             steps {
                 script {
                     echo '📤 Pushing build information to Git...'
@@ -132,14 +195,15 @@ Build Number: ${BUILD_NUMBER}
 Build Version: build-${BUILD_NUMBER}
 Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 Git Commit: $(git rev-parse HEAD)
-Git Branch: origin/main
+Git Branch: main
+Source Branch: ${CURRENT_BRANCH}
 EOF
 
                             git config user.name "Jenkins CI"
                             git config user.email "jenkins@ci.local"
                             git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Himatora/labar2.git
                             git add build-info.txt
-                            git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}"
+                            git commit -m "CI: Update build info for build ${BUILD_NUMBER} (from ${CURRENT_BRANCH})" || echo "No changes to commit"
                             git push origin HEAD:main
                             git push origin --tags
                         '''
@@ -153,12 +217,20 @@ EOF
     
     post {
         success {
-            echo "✅ Dev pipeline completed successfully!"
-            echo "📦 Images tagged: ${BUILD_VERSION}"
-            echo "🌐 Dev application available at: http://localhost"
+            script {
+                echo "✅ Pipeline completed successfully!"
+                echo "📦 Images tagged: ${BUILD_VERSION}"
+                echo "🌐 Application deployed from: main"
+                echo "🚀 Application available at: http://localhost"
+                
+                // Дополнительная информация о мерже
+                if (env.GIT_BRANCH == 'origin/dev' || CURRENT_BRANCH == 'dev') {
+                    echo "🔄 Auto-merge: dev → main completed"
+                }
+            }
         }
         failure {
-            echo "❌ Dev pipeline failed!"
+            echo "❌ Pipeline failed!"
         }
         always {
             echo "🧹 Cleaning up..."
