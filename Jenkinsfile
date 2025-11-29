@@ -84,58 +84,59 @@ pipeline {
             }
         }
         
-     stage('Deploy Dev Environment') {
-        steps {
-            script {
-                echo "🚀 Deploying dev environment..."
-                sh '''
-                    # Останавливаем ВСЕ контейнеры, использующие наши порты
-                    docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
-                    docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
-                    docker stop $(docker ps -q --filter "publish=80") 2>/dev/null || true
-                    docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
-                    
-                    # Удаляем остановленные контейнеры
-                    docker rm $(docker ps -aq --filter "publish=8001") 2>/dev/null || true
-                    docker rm $(docker ps -aq --filter "publish=8000") 2>/dev/null || true
-                    docker rm $(docker ps -aq --filter "publish=80") 2>/dev/null || true
-                    docker rm $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
-                    
-                    # Полная очистка docker-compose
-                    docker compose down --remove-orphans --volumes --timeout 30 || true
-                    
-                    # Запускаем приложение
-                    docker compose up -d --build
-                    
-                    sleep 10
-                    curl -f http://localhost/api/ || exit 1
-                    echo "✅ Dev deployment successful!"
-                '''
+        stage('Deploy Dev Environment') {
+            steps {
+                script {
+                    echo "🚀 Deploying dev environment..."
+                    sh '''
+                        # Останавливаем ВСЕ контейнеры, использующие наши порты
+                        docker stop $(docker ps -q --filter "publish=8001") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=8000") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=80") 2>/dev/null || true
+                        docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
+                        
+                        # Удаляем остановленные контейнеры
+                        docker rm $(docker ps -aq --filter "publish=8001") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=8000") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=80") 2>/dev/null || true
+                        docker rm $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
+                        
+                        # Полная очистка docker-compose
+                        docker compose down --remove-orphans --volumes --timeout 30 || true
+                        
+                        # Запускаем приложение
+                        docker compose up -d --build
+                        
+                        sleep 10
+                        curl -f http://localhost/api/ || exit 1
+                        echo "✅ Dev deployment successful!"
+                    '''
+                }
             }
         }
-    }
         
-       stage('Push to Git Repository') {
-    steps {
-        script {
-            echo '📤 Pushing build information to Git...'
-            
-            sshagent(['github-ssh-key']) {
-                sh '''
-                    git config user.name "Jenkins CI"
-                    git config user.email "jenkins@ci.local"
-                    git remote set-url origin git@github.com:Himatora/labar2.git
-                    git add build-info.txt
-                    git commit -m "CI: Update build info for dev build ${env.BUILD_NUMBER}" || echo "No changes to commit"
-                    git push origin HEAD:main
-                    git push origin --tags
-                '''
+        stage('Push to Git Repository') {
+            steps {
+                script {
+                    echo '📤 Pushing build information to Git...'
+                    
+                    sshagent(['github-ssh-key']) {
+                        sh '''
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@ci.local"
+                            git remote set-url origin git@github.com:Himatora/labar2.git
+                            git add build-info.txt
+                            git commit -m "CI: Update build info for dev build ${env.BUILD_NUMBER}" || echo "No changes to commit"
+                            git push origin HEAD:main
+                            git push origin --tags
+                        '''
+                    }
+                    
+                    echo '✅ Git push completed successfully!'
+                }
             }
-            
-            echo '✅ Git push completed successfully!'
         }
     }
-
     
     post {
         success {
