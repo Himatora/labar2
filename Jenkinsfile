@@ -89,8 +89,8 @@ pipeline {
                 script {
                     echo "🚀 Deploying dev environment..."
                     sh """
-                        docker-compose down || true
-                        docker-compose up -d --build
+                        docker compose down || true
+                        docker compose up -d --build
                         sleep 10
                         curl -f http://localhost/api/ || exit 1
                         echo "✅ Dev deployment successful!"
