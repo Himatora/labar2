@@ -9,8 +9,8 @@ pipeline {
         BUILD_VERSION = "build-${BUILD_NUMBER}"
     }
     
-    triggers {
-        pollSCM('H/2 * * * *') // Проверяет изменения каждые 2 минуты
+    triggers { 
+        githubPush() 
     }
     
     stages {
