@@ -23,12 +23,10 @@ pipeline {
             steps {
                 script {
                     echo "🔨 Building backend image..."
-                    dir('dev') {
-                        sh """
-                            docker build -f Dockerfile.backend -t ${BACKEND_IMAGE}:${BUILD_VERSION} .
-                            docker tag ${BACKEND_IMAGE}:${BUILD_VERSION} ${BACKEND_IMAGE}:latest
-                        """
-                    }
+                    sh """
+                        docker build -f Dockerfile.backend -t ${BACKEND_IMAGE}:${BUILD_VERSION} .
+                        docker tag ${BACKEND_IMAGE}:${BUILD_VERSION} ${BACKEND_IMAGE}:latest
+                    """
                 }
             }
         }
@@ -37,12 +35,10 @@ pipeline {
             steps {
                 script {
                     echo "🔨 Building nginx image..."
-                    dir('dev') {
-                        sh """
-                            docker build -f Dockerfile.nginx -t ${NGINX_IMAGE}:${BUILD_VERSION} .
-                            docker tag ${NGINX_IMAGE}:${BUILD_VERSION} ${NGINX_IMAGE}:latest
-                        """
-                    }
+                    sh """
+                        docker build -f Dockerfile.nginx -t ${NGINX_IMAGE}:${BUILD_VERSION} .
+                        docker tag ${NGINX_IMAGE}:${BUILD_VERSION} ${NGINX_IMAGE}:latest
+                    """
                 }
             }
         }
@@ -51,7 +47,7 @@ pipeline {
             steps {
                 script {
                     echo "🔨 Building version control image..."
-                    dir('dev/version_control') {
+                    dir('version_control') {
                         sh """
                             docker build -t ${VERSIONCONTROL_IMAGE}:${BUILD_VERSION} .
                             docker tag ${VERSIONCONTROL_IMAGE}:${BUILD_VERSION} ${VERSIONCONTROL_IMAGE}:latest
@@ -92,15 +88,13 @@ pipeline {
             steps {
                 script {
                     echo "🚀 Deploying dev environment..."
-                    dir('dev') {
-                        sh """
-                            docker-compose down || true
-                            docker-compose up -d --build
-                            sleep 10
-                            curl -f http://localhost/api/ || exit 1
-                            echo "✅ Dev deployment successful!"
-                        """
-                    }
+                    sh """
+                        docker-compose down || true
+                        docker-compose up -d --build
+                        sleep 10
+                        curl -f http://localhost/api/ || exit 1
+                        echo "✅ Dev deployment successful!"
+                    """
                 }
             }
         }
@@ -110,7 +104,6 @@ pipeline {
                 script {
                     echo "📤 Pushing build information to Git..."
                     
-                    // Try with credentials first, fallback to SSH if available
                     try {
                         withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                             sh """
@@ -131,7 +124,7 @@ pipeline {
                                 git add build-info.txt || true
                                 git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}" || true
                                 
-                                # Push commits and tags (HTTPS with credentials)
+                                # Push commits and tags
                                 git push https://\${GIT_USER}:\${GIT_TOKEN}@\$(echo ${env.GIT_URL} | sed 's|https://||' | sed 's|git@||' | sed 's|:|/|') HEAD:${env.GIT_BRANCH} || echo "Push skipped (no changes)"
                                 git push https://\${GIT_USER}:\${GIT_TOKEN}@\$(echo ${env.GIT_URL} | sed 's|https://||' | sed 's|git@||' | sed 's|:|/|') --tags || echo "Tag push skipped"
                                 
@@ -158,7 +151,7 @@ pipeline {
                             git add build-info.txt || true
                             git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}" || true
                             
-                            # Push commits and tags (SSH or default)
+                            # Push commits and tags
                             git push origin ${env.GIT_BRANCH} || echo "Push skipped (no changes or no SSH access)"
                             git push origin --tags || echo "Tag push skipped"
                             
