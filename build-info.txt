@@ -1,6 +1,6 @@
-Build Number: 40
-Build Version: build-40
-Build Date: 2025-11-29 17:21:16 UTC
-Git Commit: 4f12f37e15d517663b85551c21380bccef9154c9
+Build Number: 45
+Build Version: build-45
+Build Date: 2025-11-29 18:05:14 UTC
+Git Commit: 395e4b0066cbf29d0330dabe310f8a8b1cea4874
 Git Branch: main
 Source Branch: HEAD
