@@ -115,69 +115,27 @@ pipeline {
             }
         }
         
-        stage('Push to Git Repository') {
-            steps {
-                script {
-                    echo "📤 Pushing build information to Git..."
-                    
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                            sh """
-                                git config user.name "Jenkins CI"
-                                git config user.email "jenkins@ci.local"
-                                
-                                # Create or update build info file
-                                echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
-                                echo "Build Version: ${BUILD_VERSION}" >> build-info.txt
-                                echo "Build Date: \$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> build-info.txt
-                                echo "Git Commit: \$(git rev-parse HEAD)" >> build-info.txt
-                                echo "Git Branch: ${env.GIT_BRANCH}" >> build-info.txt
-                                
-                                # Create git tag for this build
-                                git tag -a "dev-build-${BUILD_NUMBER}" -m "Dev build ${BUILD_NUMBER} - ${BUILD_VERSION}" || true
-                                
-                                # Add and commit build info
-                                git add build-info.txt || true
-                                git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}" || true
-                                
-                                # Push commits and tags
-                                git push https://\${GIT_USER}:\${GIT_TOKEN}@\$(echo ${env.GIT_URL} | sed 's|https://||' | sed 's|git@||' | sed 's|:|/|') HEAD:${env.GIT_BRANCH} || echo "Push skipped (no changes)"
-                                git push https://\${GIT_USER}:\${GIT_TOKEN}@\$(echo ${env.GIT_URL} | sed 's|https://||' | sed 's|git@||' | sed 's|:|/|') --tags || echo "Tag push skipped"
-                                
-                                echo "✅ Git push completed!"
-                            """
-                        }
-                    } catch (Exception e) {
-                        echo "⚠️ Credentials not configured, trying SSH..."
-                        sh """
-                            git config user.name "Jenkins CI"
-                            git config user.email "jenkins@ci.local"
-                            
-                            # Create or update build info file
-                            echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
-                            echo "Build Version: ${BUILD_VERSION}" >> build-info.txt
-                            echo "Build Date: \$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> build-info.txt
-                            echo "Git Commit: \$(git rev-parse HEAD)" >> build-info.txt
-                            echo "Git Branch: ${env.GIT_BRANCH}" >> build-info.txt
-                            
-                            # Create git tag for this build
-                            git tag -a "dev-build-${BUILD_NUMBER}" -m "Dev build ${BUILD_NUMBER} - ${BUILD_VERSION}" || true
-                            
-                            # Add and commit build info
-                            git add build-info.txt || true
-                            git commit -m "CI: Update build info for dev build ${BUILD_NUMBER}" || true
-                            
-                            # Push commits and tags
-                            git push origin ${env.GIT_BRANCH} || echo "Push skipped (no changes or no SSH access)"
-                            git push origin --tags || echo "Tag push skipped"
-                            
-                            echo "✅ Git push completed (or skipped if no access configured)"
-                        """
-                    }
-                }
+       stage('Push to Git Repository') {
+    steps {
+        script {
+            echo '📤 Pushing build information to Git...'
+            
+            sshagent(['github-ssh-key']) {
+                sh '''
+                    git config user.name "Jenkins CI"
+                    git config user.email "jenkins@ci.local"
+                    git remote set-url origin git@github.com:Himatora/labar2.git
+                    git add build-info.txt
+                    git commit -m "CI: Update build info for dev build ${env.BUILD_NUMBER}" || echo "No changes to commit"
+                    git push origin HEAD:main
+                    git push origin --tags
+                '''
             }
+            
+            echo '✅ Git push completed successfully!'
         }
     }
+}
     
     post {
         success {
