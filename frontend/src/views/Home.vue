@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="mb-4 text-primary">Система учета занятий))</h1>
+      <h1 class="mb-4 text-primary">Система учета занятий</h1>
       <button @click="showAddCategoryModal" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> Добавить категорию
       </button>
