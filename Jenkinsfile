@@ -152,52 +152,15 @@ pipeline {
         script {
             echo "🚀 Deploying from main branch..."
             sh '''
+                # Останавливаем контейнеры, использующие порт 5000
+                docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
+                docker rm -f $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
+                
                 # Полная очистка docker-compose
                 docker compose down --remove-orphans --volumes --timeout 30 || true
                 
-                # Даем время на полную очистку
                 sleep 5
-                
-                # Запускаем приложение из main с принудительной пересборкой
                 docker compose up -d --build --force-recreate
-                
-                # Даем время на запуск контейнеров
-                echo "⏳ Waiting for containers to start..."
-                sleep 30
-                
-                # Проверяем статус контейнеров
-                echo "📊 Container status:"
-                docker compose ps
-                
-                # Проверяем логи проблемных контейнеров
-                echo "📋 Checking container logs..."
-                docker compose logs --tail=50 || echo "Could not get logs"
-                
-                # Проверяем доступность приложения
-                echo "🔍 Testing application availability..."
-                MAX_RETRIES=5
-                RETRY_COUNT=0
-                
-                while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                    if curl -f http://localhost/api/; then
-                        echo "✅ Application is accessible!"
-                        break
-                    else
-                        RETRY_COUNT=$((RETRY_COUNT+1))
-                        echo "⚠️ Attempt $RETRY_COUNT failed, retrying in 10 seconds..."
-                        sleep 10
-                    fi
-                done
-                
-                if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-                    echo "❌ Application failed to become accessible after $MAX_RETRIES attempts"
-                    echo "🔍 Debug information:"
-                    docker compose ps -a
-                    docker compose logs
-                    exit 1
-                fi
-                
-                echo "✅ Deployment from main successful!"
             '''
         }
     }
