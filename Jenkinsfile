@@ -84,8 +84,8 @@ pipeline {
             }
         }
         
-       stage('Deploy Dev Environment') {
-          steps {
+        stage('Deploy Dev Environment') {
+            steps {
                 script {
                     echo "🚀 Deploying dev environment..."
                     sh '''
@@ -115,27 +115,28 @@ pipeline {
             }
         }
         
-       stage('Push to Git Repository') {
-    steps {
-        script {
-            echo '📤 Pushing build information to Git...'
-            
-            sshagent(['github-ssh-key']) {
-                sh '''
-                    git config user.name "Jenkins CI"
-                    git config user.email "jenkins@ci.local"
-                    git remote set-url origin git@github.com:Himatora/labar2.git
-                    git add build-info.txt
-                    git commit -m "CI: Update build info for dev build ${env.BUILD_NUMBER}" || echo "No changes to commit"
-                    git push origin HEAD:main
-                    git push origin --tags
-                '''
+        stage('Push to Git Repository') {
+            steps {
+                script {
+                    echo '📤 Pushing build information to Git...'
+                    
+                    sshagent(['github-ssh-key']) {
+                        sh '''
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@ci.local"
+                            git remote set-url origin git@github.com:Himatora/labar2.git
+                            git add build-info.txt
+                            git commit -m "CI: Update build info for dev build ${env.BUILD_NUMBER}" || echo "No changes to commit"
+                            git push origin HEAD:main
+                            git push origin --tags
+                        '''
+                    }
+                    
+                    echo '✅ Git push completed successfully!'
+                }
             }
-            
-            echo '✅ Git push completed successfully!'
         }
     }
-
     
     post {
         success {
