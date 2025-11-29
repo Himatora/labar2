@@ -156,50 +156,64 @@ pipeline {
             sh '''
                 set +e  # Разрешаем ошибки для лучшего контроля
                 
-                echo "🔧 Step 1: Stopping all containers using port 5000..."
-                # Более агрессивная очистка порта 5000
-                docker stop $(docker ps -q --filter "publish=5000") 2>/dev/null || true
-                docker rm -f $(docker ps -aq --filter "publish=5000") 2>/dev/null || true
+                # Определяем все порты, которые мы используем
+                PORTS="5000 8000 8001 80"
                 
-                echo "🔧 Step 2: Checking what's using port 5000..."
-                # Проверяем процессы на порту 5000
-                if command -v netstat >/dev/null 2>&1; then
-                    echo "Netstat output for port 5000:"
-                    netstat -tulpn | grep :5000 || echo "No processes found with netstat"
-                fi
+                echo "🔧 Step 1: Stopping all containers using our ports..."
+                for port in $PORTS; do
+                    echo "Stopping containers on port $port"
+                    docker stop $(docker ps -q --filter "publish=$port") 2>/dev/null || true
+                    docker rm -f $(docker ps -aq --filter "publish=$port") 2>/dev/null || true
+                done
                 
-                if command -v ss >/dev/null 2>&1; then
-                    echo "SS output for port 5000:"
-                    ss -tulpn | grep :5000 || echo "No processes found with ss"
-                fi
+                echo "🔧 Step 2: Checking what's using our ports..."
+                for port in $PORTS; do
+                    echo "Checking port $port:"
+                    if command -v netstat >/dev/null 2>&1; then
+                        netstat -tulpn | grep :$port || echo "No processes found with netstat"
+                    fi
+                    if command -v ss >/dev/null 2>&1; then
+                        ss -tulpn | grep :$port || echo "No processes found with ss"
+                    fi
+                    if command -v lsof >/dev/null 2>&1; then
+                        lsof -i :$port || echo "No processes found with lsof"
+                    fi
+                done
                 
-                if command -v lsof >/dev/null 2>&1; then
-                    echo "Lsof output for port 5000:"
-                    lsof -i :5000 || echo "No processes found with lsof"
-                fi
-                
-                echo "🔧 Step 3: Killing processes on port 5000..."
-                # Принудительно освобождаем порт
-                sudo fuser -k 5000/tcp 2>/dev/null || true
+                echo "🔧 Step 3: Killing processes on our ports..."
+                for port in $PORTS; do
+                    sudo fuser -k $port/tcp 2>/dev/null || true
+                done
                 sleep 5
                 
                 echo "🔧 Step 4: Complete docker compose cleanup..."
                 docker compose down --remove-orphans --volumes --timeout 30 || true
-                sleep 10  # Даем больше времени на очистку
+                sleep 10
                 
-                echo "🔧 Step 5: Checking port 5000 availability..."
-                if command -v nc >/dev/null 2>&1; then
-                    if nc -z localhost 5000; then
-                        echo "❌ Port 5000 is still occupied after cleanup"
-                        echo "🔄 Trying alternative port 5002..."
-                        # Альтернативное решение - меняем порт в docker-compose
-                        sed -i 's/5000:5000/5002:5000/g' docker-compose.yml || echo "Could not change port, continuing with 5000"
-                    else
-                        echo "✅ Port 5000 is available"
+                echo "🔧 Step 5: Checking port availability..."
+                for port in $PORTS; do
+                    if command -v nc >/dev/null 2>&1; then
+                        if nc -z localhost $port; then
+                            echo "❌ Port $port is still occupied after cleanup"
+                        else
+                            echo "✅ Port $port is available"
+                        fi
                     fi
+                done
+                
+                echo "🔧 Step 6: Dynamic port allocation..."
+                # Если порты заняты, меняем их в docker-compose.yml
+                if nc -z localhost 8001; then
+                    echo "🔄 Port 8001 occupied, changing to 8002"
+                    sed -i 's/8001:8001/8002:8001/g' docker-compose.yml
                 fi
                 
-                echo "🔧 Step 6: Starting services..."
+                if nc -z localhost 5000; then
+                    echo "🔄 Port 5000 occupied, changing to 5002"
+                    sed -i 's/5000:5000/5002:5000/g' docker-compose.yml
+                fi
+                
+                echo "🔧 Step 7: Starting services..."
                 docker compose up -d --build --force-recreate
                 
                 if [ $? -eq 0 ]; then
@@ -219,22 +233,30 @@ pipeline {
                     echo "✅ Deployment completed successfully!"
                 else
                     echo "❌ Failed to start services"
-                    echo "🔄 Trying with different port..."
+                    echo "🔄 Trying complete port reassignment..."
                     
-                    # Пробуем с портом 5002 как запасной вариант
+                    # Полная перезапись портов
                     docker compose down --remove-orphans --volumes --timeout 30 || true
                     sleep 5
                     
-                    # Изменяем порт в docker-compose
-                    sed -i 's/5000:5000/5002:5000/g' docker-compose.yml || echo "Could not modify docker-compose.yml"
+                    # Изменяем ВСЕ порты
+                    sed -i 's/5000:5000/5002:5000/g' docker-compose.yml
+                    sed -i 's/8001:8001/8002:8001/g' docker-compose.yml
+                    sed -i 's/8000:8000/8003:8000/g' docker-compose.yml
                     
                     docker compose up -d --build --force-recreate
                     
                     if [ $? -eq 0 ]; then
-                        echo "✅ Services started successfully on port 5002"
+                        echo "✅ Services started successfully with new ports"
                         sleep 30
                         docker compose ps
                         docker compose logs --tail=20
+                        
+                        echo "🌐 Application available at:"
+                        echo "   Frontend: http://localhost"
+                        echo "   Backend: http://localhost:8003"
+                        echo "   Version Control: http://localhost:8002"
+                        echo "   Registry: http://localhost:5002"
                     else
                         echo "❌ Deployment failed completely"
                         docker compose logs
