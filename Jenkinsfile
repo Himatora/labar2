@@ -132,35 +132,6 @@ pipeline {
                 }
             }
         }
-        
-        stage('Start Registry') {
-            steps {
-                script {
-                    echo "🚀 Starting Docker Registry..."
-                    sh '''
-                        # Останавливаем старый registry если есть
-                        docker stop registry-dev-${BUILD_NUMBER} 2>/dev/null || true
-                        docker rm -f registry-dev-${BUILD_NUMBER} 2>/dev/null || true
-                        
-                        # Запускаем новый registry
-                        docker run -d \
-                            --name registry-dev-${BUILD_NUMBER} \
-                            -p 5001:5000 \
-                            -v registry_data_dev:/var/lib/registry \
-                            --restart unless-stopped \
-                            registry:2
-                        
-                        # Ждем пока registry запустится
-                        echo "⏳ Waiting for registry to start..."
-                        sleep 10
-                        
-                        # Проверяем что registry работает
-                        curl -f http://localhost:5001/v2/_catalog || echo "Registry check failed, but continuing..."
-                        echo "✅ Registry is running on port 5001"
-                    '''
-                }
-            }
-        }
 
         stage('Push Images to Registry') {
             steps {
