@@ -17,8 +17,11 @@ COPY backend /app
 # Create data directory
 RUN mkdir -p /app/data
 
+# Copy initialization script
+COPY backend/init_data.py /app/
+
 # Expose port
 EXPOSE 8000
 
-# Run migrations and start server
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+# Run migrations, load data and start server
+CMD ["sh", "-c", "python manage.py migrate && python init_data.py && python manage.py runserver 0.0.0.0:8000"]
